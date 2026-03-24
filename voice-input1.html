@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>语音输入</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 400px;
+            height: 100%;
+            max-height: 800px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 22px;
+        }
+        
+        .text-box-container {
+            flex: 1;
+            min-height: 0;
+            margin-bottom: 15px;
+        }
+        
+        .text-box {
+            width: 100%;
+            height: 100%;
+            min-height: 120px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+            transition: border-color 0.3s;
+            -webkit-appearance: none;
+        }
+        
+        .text-box:focus {
+            border-color: #667eea;
+        }
+        
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .clear-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            color: #666;
+            border-radius: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            -webkit-appearance: none;
+        }
+        
+        .clear-btn:active {
+            border-color: #667eea;
+            color: #667eea;
+            transform: scale(0.98);
+        }
+        
+        .voice-btn-container {
+            display: flex;
+            justify-content: center;
+            padding: 10px 0;
+        }
+        
+        .voice-btn {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: manipulation;
+            -webkit-appearance: none;
+        }
+        
+        .voice-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.4);
+        }
+        
+        .voice-btn.recording {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            animation: pulse 1.2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+        }
+        
+        .voice-btn svg {
+            width: 28px;
+            height: 28px;
+            margin-bottom: 3px;
+            fill: currentColor;
+        }
+        
+        .status {
+            text-align: center;
+            font-size: 13px;
+            color: #666;
+            min-height: 36px;
+            line-height: 1.4;
+            padding: 0 10px;
+        }
+        
+        .status.recording {
+            color: #f5576c;
+        }
+        
+        .status.error {
+            color: #e74c3c;
+        }
+        
+        .status.success {
+            color: #27ae60;
+        }
+        
+        .tip-box {
+            background: #f8f9fa;
+            border-left: 3px solid #667eea;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            border-radius: 0 8px 8px 0;
+            font-size: 12px;
+            color: #555;
+            line-height: 1.5;
+        }
+        
+        .tip-box strong {
+            color: #333;
+        }
+        
+        .unsupported {
+            display: none;
+            background: #fff3cd;
+            color: #856404;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            text-align: center;
+        }
+        
+        /* 防止iOS橡皮筋效果 */
+        @supports (-webkit-touch-callout: none) {
+            body {
+                position: fixed;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 语音输入</h1>
+        
+        <div class="tip-box" id="tipBox">
+            <strong>使用提示：</strong><br>
+            1. 点击麦克风图标开始<br>
+            2. 说完后再次点击结束<br>
+            3. 需使用 Chrome/Safari 浏览器
+        </div>
+        
+        <div class="unsupported" id="unsupportedMsg">
+            您的浏览器不支持语音识别，请使用 Chrome 或 Safari
+        </div>
+        
+        <div class="text-box-container">
+            <textarea 
+                class="text-box" 
+                id="textBox" 
+                placeholder="语音内容将显示在这里..."
+            ></textarea>
+        </div>
+        
+        <div class="btn-row">
+            <button class="clear-btn" id="clearBtn">清空</button>
+            <button class="clear-btn" id="copyBtn">复制</button>
+        </div>
+        
+        <div class="voice-btn-container">
+            <button class="voice-btn" id="voiceBtn">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+                <span id="btnText">点击说话</span>
+            </button>
+        </div>
+        
+        <div class="status" id="status">点击麦克风开始</div>
+    </div>
+
+    <script>
+        const textBox = document.getElementById('textBox');
+        const voiceBtn = document.getElementById('voiceBtn');
+        const status = document.getElementById('status');
+        const btnText = document.getElementById('btnText');
+        const clearBtn = document.getElementById('clearBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const unsupportedMsg = document.getElementById('unsupportedMsg');
+        
+        // 检查协议
+        if (window.location.protocol !== 'https:' && 
+            window.location.hostname !== 'localhost' && 
+            window.location.hostname !== '127.0.0.1') {
+            document.getElementById('tipBox').innerHTML = 
+                '<strong>⚠️ 需要HTTPS：</strong><br>语音功能需要HTTPS协议，请确保使用https访问';
+        }
+        
+        // 检查浏览器支持
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (!SpeechRecognition) {
+            unsupportedMsg.style.display = 'block';
+            document.getElementById('tipBox').style.display = 'none';
+            voiceBtn.style.display = 'none';
+            status.textContent = '浏览器不支持语音识别';
+            status.className = 'status error';
+        }
+        
+        let recognition = null;
+        let isRecording = false;
+        let finalTranscript = '';
+        let restartCount = 0;
+        const MAX_RESTART = 3;
+        
+        // 初始化语音识别
+        function initRecognition() {
+            try {
+                recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = 'zh-CN';
+                recognition.maxAlternatives = 1;
+                
+                recognition.onstart = function() {
+                    console.log('录音开始');
+                    isRecording = true;
+                    voiceBtn.classList.add('recording');
+                    btnText.textContent = '点击结束';
+                    status.textContent = '正在聆听...';
+                    status.className = 'status recording';
+                    restartCount = 0;
+                };
+                
+                recognition.onresult = function(event) {
+                    let interimTranscript = '';
+                    
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            finalTranscript += transcript;
+                            console.log('最终结果:', transcript);
+                        } else {
+                            interimTranscript += transcript;
+                        }
+                    }
+                    
+                    textBox.value = finalTranscript + interimTranscript;
+                    
+                    // 自动滚动到底部
+                    textBox.scrollTop = textBox.scrollHeight;
+                };
+                
+                recognition.onerror = function(event) {
+                    console.error('语音识别错误:', event.error);
+                    
+                    // 忽略no-speech错误，继续录音
+                    if (event.error === 'no-speech') {
+                        console.log('未检测到语音，继续监听');
+                        return;
+                    }
+                    
+                    let errorMsg = '';
+                    switch(event.error) {
+                        case 'not-allowed':
+                            errorMsg = '麦克风权限被拒绝';
+                            stopRecording();
+                            break;
+                        case 'network':
+                            errorMsg = '网络错误，请检查网络';
+                            stopRecording();
+                            break;
+                        case 'aborted':
+                            console.log('录音被取消');
+                            return;
+                        case 'service-not-allowed':
+                            errorMsg = '语音识别服务不可用';
+                            stopRecording();
+                            break;
+                        default:
+                            errorMsg = '出错: ' + event.error;
+                            stopRecording();
+                    }
+                    
+                    if (errorMsg) {
+                        status.textContent = errorMsg;
+                        status.className = 'status error';
+                    }
+                };
+                
+                recognition.onend = function() {
+                    console.log('录音结束，isRecording:', isRecording);
+                    
+                    if (isRecording && restartCount < MAX_RESTART) {
+                        // 如果仍在录音状态但意外结束，自动重新开始
+                        restartCount++;
+                        console.log('自动重启录音，次数:', restartCount);
+                        setTimeout(() => {
+                            try {
+                                recognition.start();
+                            } catch (e) {
+                                console.error('自动重启失败:', e);
+                                stopRecording();
+                            }
+                        }, 200);
+                    } else if (restartCount >= MAX_RESTART) {
+                        console.log('重启次数过多，停止录音');
+                        stopRecording();
+                        status.textContent = '录音中断，请重试';
+                        status.className = 'status error';
+                    }
+                };
+                
+                return true;
+            } catch (e) {
+                console.error('初始化失败:', e);
+                status.textContent = '初始化失败';
+                status.className = 'status error';
+                return false;
+            }
+        }
+        
+        // 切换录音状态
+        function toggleRecording() {
+            if (!SpeechRecognition) {
+                status.textContent = '浏览器不支持';
+                status.className = 'status error';
+                return;
+            }
+            
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+        
+        // 开始录音
+        function startRecording() {
+            if (!recognition) {
+                if (!initRecognition()) return;
+            }
+            
+            // 保存当前内容
+            finalTranscript = textBox.value;
+            if (finalTranscript && !finalTranscript.endsWith(' ')) {
+                finalTranscript += ' ';
+            }
+            
+            try {
+                recognition.start();
+            } catch (e) {
+                console.error('启动录音失败:', e);
+                status.textContent = '启动失败，请重试';
+                status.className = 'status error';
+            }
+        }
+        
+        // 停止录音
+        function stopRecording() {
+            isRecording = false;
+            
+            if (recognition) {
+                try {
+                    recognition.stop();
+                } catch (e) {
+                    console.error('停止录音失败:', e);
+                }
+            }
+            
+            voiceBtn.classList.remove('recording');
+            btnText.textContent = '点击说话';
+            status.textContent = '点击麦克风开始';
+            status.className = 'status';
+        }
+        
+        // 点击事件（同时支持触摸和鼠标）
+        voiceBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleRecording();
+        });
+        
+        // 清空按钮
+        clearBtn.addEventListener('click', function() {
+            textBox.value = '';
+            finalTranscript = '';
+            status.textContent = '已清空';
+            status.className = 'status success';
+            setTimeout(() => {
+                status.textContent = '点击麦克风开始';
+                status.className = 'status';
+            }, 1500);
+        });
+        
+        // 复制按钮
+        copyBtn.addEventListener('click', function() {
+            if (!textBox.value) {
+                status.textContent = '没有内容可复制';
+                status.className = 'status error';
+                return;
+            }
+            
+            textBox.select();
+            document.execCommand('copy');
+            
+            status.textContent = '已复制到剪贴板';
+            status.className = 'status success';
+            setTimeout(() => {
+                status.textContent = '点击麦克风开始';
+                status.className = 'status';
+            }, 1500);
+        });
+        
+        // 防止页面滚动和缩放
+        document.addEventListener('touchmove', function(e) {
+            if (e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // 初始化检测
+        if (SpeechRecognition) {
+            try {
+                const testRec = new SpeechRecognition();
+                status.textContent = '就绪，点击麦克风开始';
+                status.className = 'status success';
+                setTimeout(() => {
+                    status.textContent = '点击麦克风开始';
+                    status.className = 'status';
+                }, 1500);
+            } catch (e) {
+                status.textContent = '语音识别不可用';
+                status.className = 'status error';
+            }
+        }
+    </script>
+</body>
+</html>
